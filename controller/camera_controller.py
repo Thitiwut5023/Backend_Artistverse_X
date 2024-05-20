@@ -1,7 +1,7 @@
 # camera_controller.py
 
 from flask import Response, jsonify
-from camera import VideoCamera
+from model.camera import VideoCamera
 from service.camera_service import gen, get_music_recommendations
 
 

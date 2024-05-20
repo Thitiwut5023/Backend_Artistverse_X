@@ -1,11 +1,5 @@
 # camera_service.py
-
-import numpy as np
-import cv2
-from PIL import Image
-import pandas as pd
-from threading import Thread
-from camera import VideoCamera
+from model.camera import VideoCamera
 
 emotion_dict = {0: "Angry", 1: "Disgusted", 2: "Fearful", 3: "Happy", 4: "Neutral", 5: "Sad", 6: "Surprised"}
 df1 = None

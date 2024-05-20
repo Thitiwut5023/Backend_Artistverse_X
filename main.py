@@ -1,6 +1,5 @@
-from flask import Flask, jsonify, request, Response
+from flask import Flask
 from flask_cors import CORS
-from camera import VideoCamera
 from controller.genre_controller import generate_lyrics_genre_handler
 from controller.mood_controller import generate_lyrics_mood_handler
 from controller.artist_controller import generate_lyrics_artist_handler

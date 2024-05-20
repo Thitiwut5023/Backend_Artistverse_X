@@ -6,7 +6,7 @@ from tensorflow.keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2
 import datetime
 from threading import Thread
 import pandas as pd
-from Database.db_connection import create_connection, close_connection
+from database.db_connection import create_connection, close_connection
 
 # Load the face detection model
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
@@ -26,7 +26,7 @@ emotion_model.add(Flatten())
 emotion_model.add(Dense(1024, activation='relu'))
 emotion_model.add(Dropout(0.5))
 emotion_model.add(Dense(7, activation='softmax'))
-emotion_model.load_weights('./model/model.h5')
+emotion_model.load_weights('model/model.h5')
 
 # Define the emotion dictionary
 emotion_dict = {0: "Angry", 1: "Disgusted", 2: "Fearful", 3: "Happy", 4: "Neutral", 5: "Sad", 6: "Surprised"}
