@@ -4,6 +4,7 @@ from camera import VideoCamera
 from controller.genre_controller import generate_lyrics_genre_handler
 from controller.mood_controller import generate_lyrics_mood_handler
 from controller.artist_controller import generate_lyrics_artist_handler
+from controller.camera_controller import video_feed, gen_table
 
 app = Flask(__name__)
 
@@ -25,6 +26,16 @@ def generate_lyrics_mood_route():
 @app.route('/generate-lyrics-artist', methods=['POST'])
 def generate_lyrics_artist_route():
     return generate_lyrics_artist_handler()
+
+
+@app.route('/video_feed')
+def video_feed_route():
+    return video_feed()
+
+
+@app.route('/t')
+def gen_table_route():
+    return gen_table()
 
 
 # previous_response = ""
@@ -54,39 +65,6 @@ def generate_lyrics_artist_route():
 #     previous_response = response
 #
 #     return jsonify({'response': response})
-
-
-df1 = None
-emotion = None
-
-headings = ("Name", "Album", "Artist", "Image", "Spotify_link")
-
-
-def gen(camera):
-    global df1, emotion
-    while True:
-        frame, df1, emotion = camera.get_frame()
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
-
-
-@app.route('/video_feed')
-def video_feed():
-    return Response(gen(VideoCamera()),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
-
-
-@app.route('/t')
-def gen_table():
-    global df1, emotion
-    if df1 is not None:
-        response = {
-            "songs": df1.to_json(orient='records'),
-            "emotion": emotion
-        }
-        return jsonify(response)
-    else:
-        return jsonify({"songs": [], "emotion": None})
 
 
 if __name__ == '__main__':
