@@ -14,11 +14,13 @@ def gen(camera):
 
 def get_music_recommendations():
     global df1, emotion
-    if df1 is not None:
+    if df1 is not None and not df1.empty:
         response = {
             "songs": df1.to_json(orient='records'),
             "emotion": emotion
         }
         return response
+    elif emotion == "Unknown":
+        return {"error": "Mood could not be detected, Try again", "songs": [], "emotion": None}
     else:
-        return {"songs": [], "emotion": None}
+        return {"error": "No face detected", "songs": [], "emotion": None}

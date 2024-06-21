@@ -35,7 +35,8 @@ emotion_dict = {0: "Angry", 1: "Disgusted", 2: "Fearful", 3: "Happy", 4: "Neutra
 global last_frame1
 last_frame1 = np.zeros((480, 640, 3), dtype=np.uint8)
 global cap1
-show_text = [0]
+show_text = [None]
+
 
 # Class for calculating FPS while streaming
 class FPS:
@@ -60,6 +61,7 @@ class FPS:
     def fps(self):
         return self._numFrames / self.elapsed()
 
+
 # Class for using another thread for video streaming
 class WebcamVideoStream:
     def __init__(self, src=0):
@@ -83,6 +85,7 @@ class WebcamVideoStream:
     def stop(self):
         self.stopped = True
 
+
 # Class for reading video stream, generating prediction and recommendations
 class VideoCamera:
     def __init__(self):
@@ -100,17 +103,22 @@ class VideoCamera:
         ret, frame = self.capture.read()
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         face_rects = face_cascade.detectMultiScale(gray, 1.3, 5)
-        df1 = self.fetch_music_recommendations(show_text[0])
-        for (x, y, w, h) in face_rects:
-            cv2.rectangle(frame, (x, y - 50), (x + w, y + h + 10), (0, 255, 0), 2)
-            roi_gray_frame = gray[y:y + h, x:x + w]
-            cropped_img = np.expand_dims(np.expand_dims(cv2.resize(roi_gray_frame, (48, 48)), -1), 0)
-            prediction = emotion_model.predict(cropped_img)
 
-            maxindex = int(np.argmax(prediction))
-            show_text[0] = maxindex
-            cv2.putText(frame, emotion_dict[maxindex], (x + 20, y - 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
-            df1 = self.fetch_music_recommendations(show_text[0])
+        if len(face_rects) == 0:
+            show_text[0] = None
+        else:
+            for (x, y, w, h) in face_rects:
+                cv2.rectangle(frame, (x, y - 50), (x + w, y + h + 10), (0, 255, 0), 2)
+                roi_gray_frame = gray[y:y + h, x:x + w]
+                cropped_img = np.expand_dims(np.expand_dims(cv2.resize(roi_gray_frame, (48, 48)), -1), 0)
+                prediction = emotion_model.predict(cropped_img)
+
+                maxindex = int(np.argmax(prediction))
+                show_text[0] = maxindex
+                cv2.putText(frame, emotion_dict[maxindex], (x + 20, y - 60), cv2.FONT_HERSHEY_SIMPLEX, 1,
+                            (255, 255, 255), 2, cv2.LINE_AA)
+
+        df1 = self.fetch_music_recommendations(show_text[0])
 
         global last_frame1
         last_frame1 = frame.copy()
@@ -118,13 +126,15 @@ class VideoCamera:
         img = Image.fromarray(last_frame1)
         img = np.array(img)
         ret, jpeg = cv2.imencode('.jpg', img)
-        return jpeg.tobytes(), df1, emotion_dict[show_text[0]]
+        return jpeg.tobytes(), df1, emotion_dict.get(show_text[0], "Unknown")
 
     def fetch_music_recommendations(self, emotion_index):
+        if emotion_index is None:
+            return pd.DataFrame()
+
         cursor = self.db_connection.cursor(dictionary=True)
-        query = "SELECT Name, Album, Artist, Image, Spotify_link FROM spotify_track WHERE emotion = %s ORDER BY RAND() LIMIT 15"
+        query = "SELECT Name, Album, Artist, Image, Spotify_link FROM spotify_track WHERE emotion = %s ORDER BY RAND() LIMIT 16"
         cursor.execute(query, (emotion_dict[emotion_index],))
         result = cursor.fetchall()
         cursor.close()
         return pd.DataFrame(result)
-
