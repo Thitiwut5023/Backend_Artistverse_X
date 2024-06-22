@@ -3,7 +3,7 @@ from flask_cors import CORS
 from controller.GenreController import GenreController
 from controller.MoodController import MoodController
 from controller.ArtistController import ArtistController
-from controller.camera_controller import video_feed, gen_table
+from controller.CameraController import CameraController
 
 app = Flask(__name__)
 app.config.from_object(__name__)
@@ -29,11 +29,13 @@ def generate_lyrics_artist_route():
 
 @app.route('/video_feed')
 def video_feed_route():
-    return video_feed()
+    camera_controller = CameraController()
+    return camera_controller.video_feed()
 
 @app.route('/t')
 def gen_table_route():
-    return gen_table()
+    camera_controller = CameraController()
+    return camera_controller.gen_table()
 
 if __name__ == '__main__':
     app.run(debug=True)
