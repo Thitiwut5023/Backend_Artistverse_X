@@ -20,6 +20,8 @@ def get_music_recommendations():
             "emotion": emotion
         }
         return response
+
+
     elif emotion == "Unknown":
         return {"error": "Mood could not be detected, Try again", "songs": [], "emotion": None}
     else:

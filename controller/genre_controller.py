@@ -1,5 +1,5 @@
 from flask import jsonify, request
-from service.openai_service import generate_lyrics_genre
+from service.genre_service import generate_lyrics_genre
 
 
 def generate_lyrics_genre_handler():
