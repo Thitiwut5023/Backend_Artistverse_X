@@ -1,4 +1,4 @@
-# models/camera.py
+# models/VideoCameraModelService.py
 
 import numpy as np
 import cv2
