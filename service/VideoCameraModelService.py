@@ -33,24 +33,36 @@ emotion_dict = {0: "Angry", 1: "Disgusted", 2: "Fearful", 3: "Happy", 4: "Neutra
 
 class VideoCamera:
     def __init__(self):
+        self.capture = None
+        self.db_connection = create_connection()
+        self.last_frame1 = np.zeros((480, 640, 3), dtype=np.uint8)
+        self.show_text = None
+
+    def __del__(self):
+        if self.capture:
+            self.capture.release()
+        close_connection(self.db_connection)
+
+    def start_capture(self):
         self.capture = cv2.VideoCapture(0)
         self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-        self.db_connection = create_connection()
-        self.last_frame1 = np.zeros((480, 640, 3), dtype=np.uint8)
-        self.show_text = [None]
 
-    def __del__(self):
-        self.capture.release()
-        close_connection(self.db_connection)
+    def stop_capture(self):
+        if self.capture:
+            self.capture.release()
+            self.capture = None
 
     def get_frame(self):
+        if not self.capture:
+            self.start_capture()
+
         ret, frame = self.capture.read()
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         face_rects = face_cascade.detectMultiScale(gray, 1.3, 5)
 
         if len(face_rects) == 0:
-            self.show_text[0] = None
+            self.show_text = None
         else:
             for (x, y, w, h) in face_rects:
                 cv2.rectangle(frame, (x, y - 50), (x + w, y + h + 10), (0, 255, 0), 2)
@@ -58,16 +70,16 @@ class VideoCamera:
                 cropped_img = np.expand_dims(np.expand_dims(cv2.resize(roi_gray_frame, (48, 48)), -1), 0)
                 prediction = emotion_model.predict(cropped_img)
                 maxindex = int(np.argmax(prediction))
-                self.show_text[0] = maxindex
+                self.show_text = maxindex
                 cv2.putText(frame, emotion_dict[maxindex], (x + 20, y - 60), cv2.FONT_HERSHEY_SIMPLEX, 1,
                             (255, 255, 255), 2, cv2.LINE_AA)
 
-        df1 = self.fetch_music_recommendations(self.show_text[0])
+        df1 = self.fetch_music_recommendations(self.show_text)
         self.last_frame1 = frame.copy()
         img = Image.fromarray(self.last_frame1)
         img = np.array(img)
         ret, jpeg = cv2.imencode('.jpg', img)
-        return jpeg.tobytes(), df1, emotion_dict.get(self.show_text[0], "Unknown")
+        return jpeg.tobytes(), df1, emotion_dict.get(self.show_text, "Unknown")
 
     def fetch_music_recommendations(self, emotion_index):
         if emotion_index is None:
