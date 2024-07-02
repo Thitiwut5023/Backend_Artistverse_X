@@ -9,8 +9,8 @@ import pandas as pd
 from database.db_connection import create_connection, close_connection
 
 # Load the face detection model
-face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
-
+face_cascade_path = '/Users/meiigam/Backend_Artistverse/model/haarcascade_frontalface_default.xml'
+face_cascade = cv2.CascadeClassifier(face_cascade_path)
 # Load the emotion detection model
 emotion_model = Sequential()
 emotion_model.add(Conv2D(32, kernel_size=(3, 3), activation='relu', input_shape=(48, 48, 1)))
