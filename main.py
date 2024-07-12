@@ -4,6 +4,7 @@ from controller.GenreController import GenreController
 from controller.MoodController import MoodController
 from controller.ArtistController import ArtistController
 from controller.CameraController import CameraController
+from controller.AnalysisController import AnalysisController
 
 app = Flask(__name__)
 app.config.from_object(__name__)
@@ -37,5 +38,10 @@ def gen_table_route():
     camera_controller = CameraController()
     return camera_controller.gen_table()
 
+@app.route('/analysis-lyrics', methods=['POST'])
+def analysis_lyrics_route():
+    analysis_controller = AnalysisController(OPENAI_API_KEY)
+    return analysis_controller.analysis_lyrics_handler()
+    
 if __name__ == '__main__':
     app.run(debug=True)
