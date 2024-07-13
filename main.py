@@ -38,7 +38,7 @@ def gen_table_route():
     camera_controller = CameraController()
     return camera_controller.gen_table()
 
-@app.route('/analysis-lyrics', methods=['POST'])
+@app.route('/ai-assistance', methods=['POST'])
 def analysis_lyrics_route():
     analysis_controller = AnalysisController(OPENAI_API_KEY)
     return analysis_controller.analysis_lyrics_handler()
