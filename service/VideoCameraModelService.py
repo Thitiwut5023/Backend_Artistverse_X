@@ -9,7 +9,7 @@ import pandas as pd
 from database.db_connection import create_connection, close_connection
 
 # Load the face detection model
-face_cascade_path = '/Users/meiigam/Backend_Artistverse/model/haarcascade_frontalface_default.xml'
+face_cascade_path = 'model/haarcascade_frontalface_default.xml'
 face_cascade = cv2.CascadeClassifier(face_cascade_path)
 # Load the emotion detection model
 emotion_model = Sequential()
