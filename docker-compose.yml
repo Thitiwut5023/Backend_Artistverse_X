@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  ArtistverseX:
+    image: mysql:latest
+    container_name: ArtistverseX
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ArtistverseX
+      MYSQL_DATABASE: ArtistverseX
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin
+    restart: always
+    depends_on:
+      - ArtistverseX
+    environment:
+      PMA_HOST: ArtistverseX
+      PMA_PORT: 3306
+    ports:
+      - "8080:80"
+
+volumes:
+  mysql-data:

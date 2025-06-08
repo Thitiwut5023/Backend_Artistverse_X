@@ -6,7 +6,7 @@ from PIL import Image
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
 import pandas as pd
-from database.db_connection import create_connection, close_connection
+from Database.db_connection import create_connection, close_connection
 
 # Load the face detection model
 face_cascade_path = 'model/haarcascade_frontalface_default.xml'

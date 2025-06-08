@@ -3,7 +3,7 @@ from spotipy.oauth2 import SpotifyClientCredentials
 import pandas as pd
 import time
 import requests
-from database.db_connection import create_connection, close_connection
+from Database.db_connection import create_connection, close_connection
 
 auth_manager = SpotifyClientCredentials('', '')
 sp = spotipy.Spotify(auth_manager=auth_manager)

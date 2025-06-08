@@ -6,12 +6,16 @@ from controller.ArtistController import ArtistController
 from controller.CameraController import CameraController
 from controller.AnalysisController import AnalysisController
 
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 app = Flask(__name__)
 app.config.from_object(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-OPENAI_API_KEY = ""
-
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 @app.route('/generate-lyrics-genre', methods=['POST'])
 def generate_lyrics_genre_route():
@@ -42,6 +46,6 @@ def gen_table_route():
 def analysis_lyrics_route():
     analysis_controller = AnalysisController(OPENAI_API_KEY)
     return analysis_controller.analysis_lyrics_handler()
-    
+
 if __name__ == '__main__':
     app.run(debug=True)

@@ -1,0 +1,7 @@
+﻿.env
+.idea/misc.xml
+.idea/Backend_Artistverse.iml
+util/__pycache__
+service/__pycache__
+controller/__pycache__
+Database/__pycache__
