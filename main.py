@@ -7,6 +7,7 @@ from controller.CameraController import CameraController
 from controller.AnalysisController import AnalysisController
 from controller.SpotifyAuthController import SpotifyAuthController
 from controller.SpotifyRecommendController import SpotifyRecommendController
+from controller.SearchController import SearchController
 
 import os
 from dotenv import load_dotenv
@@ -86,6 +87,12 @@ def spotify_recommend():
 def spotify_generate_content():
     spotify_recommend_controller = SpotifyRecommendController()
     return spotify_recommend_controller.generate_song_content()
+
+# Search Routes
+@app.route('/search', methods=['GET'])
+def search_route():
+    search_controller = SearchController()
+    return search_controller.search_handler()
 
 if __name__ == '__main__':
     app.run(debug=True)
