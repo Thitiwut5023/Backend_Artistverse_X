@@ -100,7 +100,8 @@ class SpotifyRecommendController:
             'kendrick lamar': 'hip-hop',
             'lana del rey': self.DREAM_POP,
             'phoebe bridgers': self.INDIE_FOLK,
-            'mitski': self.INDIE_ROCK,            'tame impala': 'psychedelic pop',
+            'mitski': self.INDIE_ROCK,            
+            'tame impala': 'psychedelic pop',
             'glass animals': self.INDIE_POP,
         }
         

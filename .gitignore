@@ -8,3 +8,5 @@ Database/__pycache__
 http_ca.crt
 .cache
 test_connect.ipynb
+bulk_index_log.pkl
+test/data/merged_clean.csv
