@@ -5,3 +5,6 @@ util/__pycache__
 service/__pycache__
 controller/__pycache__
 Database/__pycache__
+http_ca.crt
+.cache
+test_connect.ipynb

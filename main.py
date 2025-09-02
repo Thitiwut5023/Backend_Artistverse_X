@@ -5,6 +5,8 @@ from controller.MoodController import MoodController
 from controller.ArtistController import ArtistController
 from controller.CameraController import CameraController
 from controller.AnalysisController import AnalysisController
+from controller.SpotifyAuthController import SpotifyAuthController
+from controller.SpotifyRecommendController import SpotifyRecommendController
 
 import os
 from dotenv import load_dotenv
@@ -13,6 +15,7 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config.from_object(__name__)
+app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-here')
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -46,6 +49,38 @@ def gen_table_route():
 def analysis_lyrics_route():
     analysis_controller = AnalysisController(OPENAI_API_KEY)
     return analysis_controller.analysis_lyrics_handler()
+
+# Spotify Authentication Routes
+@app.route('/auth/spotify/login', methods=['GET'])
+def spotify_login():
+    spotify_auth_controller = SpotifyAuthController()
+    return spotify_auth_controller.get_login_url()
+
+@app.route('/auth/spotify/callback', methods=['GET'])
+def spotify_callback():
+    spotify_auth_controller = SpotifyAuthController()
+    return spotify_auth_controller.handle_callback()
+
+@app.route('/auth/spotify/refresh', methods=['POST'])
+def spotify_refresh_token():
+    spotify_auth_controller = SpotifyAuthController()
+    return spotify_auth_controller.refresh_token()
+
+@app.route('/auth/spotify/profile', methods=['GET'])
+def spotify_profile():
+    spotify_auth_controller = SpotifyAuthController()
+    return spotify_auth_controller.get_user_profile()
+
+@app.route('/auth/spotify/validate', methods=['GET'])
+def spotify_validate():
+    spotify_auth_controller = SpotifyAuthController()
+    return spotify_auth_controller.validate_token()
+
+# Spotify Recommendation Routes
+@app.route('/spotify/recommend', methods=['POST'])
+def spotify_recommend():
+    spotify_recommend_controller = SpotifyRecommendController()
+    return spotify_recommend_controller.get_recommendations()
 
 if __name__ == '__main__':
     app.run(debug=True)
