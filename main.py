@@ -82,5 +82,10 @@ def spotify_recommend():
     spotify_recommend_controller = SpotifyRecommendController()
     return spotify_recommend_controller.get_recommendations()
 
+@app.route('/spotify/generate-content', methods=['POST'])
+def spotify_generate_content():
+    spotify_recommend_controller = SpotifyRecommendController()
+    return spotify_recommend_controller.generate_song_content()
+
 if __name__ == '__main__':
     app.run(debug=True)

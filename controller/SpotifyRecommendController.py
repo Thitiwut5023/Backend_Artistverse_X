@@ -4,23 +4,54 @@ import os
 from dotenv import load_dotenv
 import random
 import re
+import math
+import openai
+import json
+import time
 
 load_dotenv()
 
 class SpotifyRecommendController:
+    # Genre constants
+    DREAM_POP = 'dream pop'
+    INDIE_POP = 'indie pop'
+    INDIE_ROCK = 'indie rock'
+    INDIE_FOLK = 'indie folk'
+    CONTEMPORARY_RNB = 'contemporary r&b'
+    BEDROOM_POP = 'bedroom pop'
+    ELECTROPOP = 'electropop'
+    ALTERNATIVE_POP = 'alternative pop'
+    DARK_POP = 'dark pop'
+    TRAP_ROCK = 'trap rock'
+    
     def __init__(self):
         self.client_id = os.getenv('SPOTIPY_CLIENT_ID')
         self.client_secret = os.getenv('SPOTIPY_CLIENT_SECRET')
         
-        # Audio features estimation data
+        # Enhanced audio features estimation data with more specific genres
         self.genre_tempo_map = {
-            'pop': {'min': 120, 'max': 140, 'mode': 'Major'},
+            self.DREAM_POP: {'min': 80, 'max': 120, 'mode': 'Major'},
+            self.INDIE_POP: {'min': 100, 'max': 130, 'mode': 'Major'},
+            'pop': {'min': 100, 'max': 130, 'mode': 'Major'},
+            self.ELECTROPOP: {'min': 110, 'max': 140, 'mode': 'Major'},
+            'synthpop': {'min': 120, 'max': 140, 'mode': 'Major'},
+            self.ALTERNATIVE_POP: {'min': 110, 'max': 130, 'mode': 'Major'},
+            self.DARK_POP: {'min': 110, 'max': 130, 'mode': 'Minor'},
+            self.TRAP_ROCK: {'min': 115, 'max': 135, 'mode': 'Minor'},
+            'alternative rock': {'min': 120, 'max': 160, 'mode': 'Minor'},
+            'electropop': {'min': 110, 'max': 140, 'mode': 'Major'},
             'rock': {'min': 120, 'max': 160, 'mode': 'Minor'},
             'hip-hop': {'min': 70, 'max': 140, 'mode': 'Minor'},
+            'trap': {'min': 60, 'max': 100, 'mode': 'Minor'},
             'rap': {'min': 70, 'max': 140, 'mode': 'Minor'},
+            'drill': {'min': 120, 'max': 160, 'mode': 'Minor'},
             'electronic': {'min': 120, 'max': 180, 'mode': 'Major'},
+            'house': {'min': 120, 'max': 130, 'mode': 'Major'},
+            'techno': {'min': 120, 'max': 140, 'mode': 'Major'},
+            'edm': {'min': 128, 'max': 140, 'mode': 'Major'},
             'dance': {'min': 120, 'max': 140, 'mode': 'Major'},
             'indie': {'min': 100, 'max': 130, 'mode': 'Major'},
+            self.INDIE_FOLK: {'min': 80, 'max': 120, 'mode': 'Major'},
             'folk': {'min': 80, 'max': 120, 'mode': 'Major'},
             'country': {'min': 100, 'max': 140, 'mode': 'Major'},
             'jazz': {'min': 60, 'max': 200, 'mode': 'Major'},
@@ -31,29 +62,84 @@ class SpotifyRecommendController:
             'classical': {'min': 60, 'max': 200, 'mode': 'Major'},
             'alternative': {'min': 100, 'max': 140, 'mode': 'Minor'},
             'r&b': {'min': 70, 'max': 130, 'mode': 'Major'},
+            self.CONTEMPORARY_RNB: {'min': 70, 'max': 130, 'mode': 'Major'},
             'soul': {'min': 70, 'max': 130, 'mode': 'Major'},
             'funk': {'min': 100, 'max': 130, 'mode': 'Major'},
             'ambient': {'min': 60, 'max': 100, 'mode': 'Major'},
+            'lo-fi': {'min': 70, 'max': 90, 'mode': 'Major'},
+            self.BEDROOM_POP: {'min': 80, 'max': 110, 'mode': 'Major'},
         }
         
+        # Enhanced artist genre mapping with correct artist names and specific genres
         self.artist_genre_map = {
             'taylor swift': 'pop',
             'ed sheeran': 'pop',
             'drake': 'hip-hop',
             'ariana grande': 'pop',
             'post malone': 'hip-hop',
-            'the weeknd': 'r&b',
-            'dua lipa': 'pop',
-            'olivia rodrigo': 'pop',
+            'the weeknd': self.CONTEMPORARY_RNB,
+            'dua lipa': self.ELECTROPOP,
+            'olivia rodrigo': self.INDIE_POP,
             'harry styles': 'pop',
-            'billie eilish': 'alternative',
-            'arctic monkeys': 'indie',
-            'the walters': 'indie',
+            'billie eilish': self.ELECTROPOP,
+            'chase atlantic': self.ALTERNATIVE_POP,
+            'arctic monkeys': self.INDIE_ROCK,
+            'the walters': self.INDIE_POP,
             'little john': 'hip-hop',
             'ten': 'pop',
             'arafat': 'hip-hop',
-            'nct dream': 'pop',
+            'nct dream': 'k-pop',
+            'd4vd': self.DREAM_POP,
+            'clairo': self.BEDROOM_POP,
+            'rex orange county': self.BEDROOM_POP,
+            'boy pablo': self.INDIE_POP,
+            'kali uchis': self.CONTEMPORARY_RNB,
+            'tyler, the creator': 'hip-hop',
+            'frank ocean': self.CONTEMPORARY_RNB,
+            'mac miller': 'hip-hop',
+            'kendrick lamar': 'hip-hop',
+            'lana del rey': self.DREAM_POP,
+            'phoebe bridgers': self.INDIE_FOLK,
+            'mitski': self.INDIE_ROCK,            'tame impala': 'psychedelic pop',
+            'glass animals': self.INDIE_POP,
         }
+        
+        # Artist-specific key patterns for enhanced key estimation
+        self.artist_key_patterns = {
+            'chase atlantic': ['Ab', 'G#', 'Eb', 'Bb', 'F'],
+            'billie eilish': ['F#', 'G', 'Am', 'Em'],
+            'the weeknd': ['C', 'Am', 'F', 'G'],
+            'olivia rodrigo': ['F', 'C', 'G', 'Am'],
+        }
+        
+        # Artist-specific tempo overrides for accuracy
+        self.artist_tempo_overrides = {
+            'chase atlantic': {
+                'swim': 120,
+                'default': 120
+            },
+            'billie eilish': {
+                'default': 85
+            }
+        }
+        
+        # Artist-specific mood characteristics
+        self.artist_moods = {
+            'chase atlantic': ['Energetic', 'Dark-Pop', 'Sensual'],
+            'billie eilish': ['Melancholic', 'Dark', 'Introspective'],
+            'the weeknd': ['Sensual', 'Dark', 'Atmospheric'],
+            'olivia rodrigo': ['Emotional', 'Angsty', 'Vulnerable'],
+        }
+        
+        # Genre-specific mood patterns
+        self.genre_moods = {
+            self.ALTERNATIVE_POP: ['Energetic', 'Dark-Pop', 'Sensual'],
+            self.DARK_POP: ['Dark', 'Melancholic', 'Introspective'],
+            self.DREAM_POP: ['Dreamy', 'Ethereal', 'Nostalgic'],
+            self.BEDROOM_POP: ['Chill', 'Intimate', 'Lo-fi'],
+            self.INDIE_POP: ['Upbeat', 'Quirky', 'Feel-good'],
+        }
+
     def get_recommendations(self):
         """Get music recommendations from Spotify API"""
         try:
@@ -236,8 +322,7 @@ class SpotifyRecommendController:
             'track:Levitating artist:Dua Lipa',
             'artist:Taylor Swift',
             'artist:Ariana Grande',
-            'artist:Post Malone'
-        ]
+            'artist:Post Malone'        ]
         
         tracks_per_search = max(1, limit // len(popular_searches))
         
@@ -258,50 +343,58 @@ class SpotifyRecommendController:
         return tracks
     
     def _format_track(self, track):
-        """Format track data for frontend"""
-        # Get artist names
+        """Format track data for frontend with specific required fields"""
+        # Get artist names (preserve exact official format)
         artists = [artist['name'] for artist in track['artists']]
         artist_name = ', '.join(artists)
         
         # Get album image
         image_url = None
         if track['album']['images']:
-            # Get the medium-sized image (usually index 1, or fallback to largest)
             if len(track['album']['images']) > 1:
                 image_url = track['album']['images'][1]['url']
             else:
                 image_url = track['album']['images'][0]['url']
-          # Get release year
+                
+        # Get release year (original release, not remaster)
         release_date = track['album']['release_date']
         year = release_date.split('-')[0] if release_date else 'Unknown'
+          # Estimate genre from artist and track name
+        estimated_genre = self._estimate_specific_genre(artist_name.lower(), track['name'].lower())
+        audio_features = self._estimate_audio_features(track)
         
-        # Estimate genre from artist and track name
-        estimated_genre = self._estimate_genre(artist_name.lower(), track['name'].lower())
+        # Format duration to minutes:seconds
+        duration_formatted = self._format_duration(track['duration_ms'])        # Get musical key
+        key = audio_features.get('key', 'C')
         
-        # Get additional track features if available
+        # Create music style description
+        music_style = self._create_music_style(artist_name, estimated_genre, track.get('popularity', 50))
+        
         formatted_track = {
-            'id': hash(track['id']) % 100000,  # Create a more unique numeric ID from Spotify ID
+            'id': hash(track['id']) % 100000,
             'spotify_id': track['id'],
-            'name': track['name'] or 'Unknown Song',
-            'artist': artist_name or 'Unknown Artist',
+            # Core song information
+            'song_title': track['name'] or 'Unknown Song',  # Preserve exact official title
+            'artist_name': artist_name or 'Unknown Artist',  # Preserve exact official artist name
+            'genre': estimated_genre,  # Specific subgenre analysis
+            'beat': f"{audio_features.get('tempo', 120)}",  # Just BPM number for better accuracy
+            'mood': audio_features.get('mood', 'Balanced'),  # Enhanced mood analysis
+            'keywords': self._generate_specific_keywords(estimated_genre, track['name']),  # 4-6 relevant tags
+            'instruments': self._estimate_instruments(estimated_genre),  # Main instruments by prominence
+            'release_year': year,  # Original release year
+            'key': key,  # Musical key
+            'duration': duration_formatted,  # Song duration
+            'music_style': music_style,  # New music style field
+            
+            # Additional metadata for display
             'album': track['album']['name'] or 'Unknown Album',
             'image': image_url,
             'spotify_url': track['external_urls']['spotify'],
-            'preview_url': track['preview_url'],            'year': year,
-            'popularity': track['popularity'],
-            'duration_ms': track['duration_ms'],
-            # Default values for fields not available from basic track info
-            'mood': 'Unknown',
-            'genre': estimated_genre.title(),  # Capitalize first letter (e.g., 'pop' -> 'Pop')
-            'tempo': 'Unknown',
-            'style': self._create_music_style(artist_name, estimated_genre, track['popularity']),
-            'instruments': self._estimate_instruments(estimated_genre),
-            'keywords': self._generate_keywords(estimated_genre, track['name'], artist_name),
-            'shortLyric': 'Preview not available',
-            'description': f'A track by {artist_name} from the album {track["album"]["name"]}.'
+            'preview_url': track['preview_url'],
+            'popularity': track['popularity']
         }
         
-        return formatted_track        
+        return formatted_track
     def get_track_features(self):
         """Get detailed audio features for tracks using estimation algorithms"""
         try:
@@ -363,26 +456,34 @@ class SpotifyRecommendController:
             }), 500    
         
     def _estimate_audio_features(self, track):
-        """Estimate audio features from track metadata"""
-        # Get artist info
+        """Estimate audio features from track metadata"""        # Get artist info
         artist_name = track['artists'][0]['name'].lower() if track['artists'] else 'unknown'
         track_name = track['name'].lower() if track['name'] else 'unknown'
         popularity = track.get('popularity', 50)
-        duration_ms = track.get('duration_ms', 180000)  # Default 3 minutes
         
         # Estimate genre from artist
         estimated_genre = self._estimate_genre(artist_name, track_name)
         
         # Get tempo range for genre
         tempo_info = self.genre_tempo_map.get(estimated_genre, {'min': 100, 'max': 130, 'mode': 'Major'})
-        
-        # Calculate estimated tempo based on duration and popularity
+          # Calculate estimated tempo based on duration and popularity
         tempo_base = (tempo_info['min'] + tempo_info['max']) / 2
         tempo_variation = (popularity - 50) * 0.5  # Popular songs tend to be slightly faster
         estimated_tempo = int(tempo_base + tempo_variation)
         
-        # Ensure tempo stays within genre bounds
-        estimated_tempo = max(tempo_info['min'], min(tempo_info['max'], estimated_tempo))
+        # Artist-specific tempo adjustments for accuracy
+        artist_tempo_overrides = {
+            'chase atlantic': {'swim': 120, 'default': 120}  # Known Chase Atlantic songs
+        }
+        
+        if artist_name in artist_tempo_overrides:
+            if track_name in artist_tempo_overrides[artist_name]:
+                estimated_tempo = artist_tempo_overrides[artist_name][track_name]
+            else:
+                estimated_tempo = artist_tempo_overrides[artist_name]['default']
+        
+        # Ensure tempo stays within reasonable bounds
+        estimated_tempo = max(60, min(200, estimated_tempo))
         
         # Estimate energy based on genre and popularity
         energy = self._estimate_energy(estimated_genre, popularity)
@@ -395,13 +496,16 @@ class SpotifyRecommendController:
         
         # Estimate acousticness based on genre
         acousticness = self._estimate_acousticness(estimated_genre)
-        
-        # Estimate key and mode
-        key = self._estimate_key(estimated_genre, track_name)
+          # Estimate key and mode - pass audio features for better estimation
+        audio_features_temp = {
+            'valence': valence,
+            'energy': energy
+        }
+        key = self._estimate_key(estimated_genre, track_name, artist_name, audio_features_temp)
         mode = tempo_info['mode']
         
-        # Convert valence to mood text
-        mood = self._valence_to_mood(valence, energy)
+        # Convert valence to mood text with enhanced analysis
+        mood = self._valence_to_mood(valence, energy, estimated_genre, track_name, artist_name)
         
         return {
             'tempo': f"{estimated_tempo} BPM",
@@ -499,58 +603,167 @@ class SpotifyRecommendController:
             'metal': 5, 'punk': 10, 'r&b': 30, 'ambient': 60
         }
         
-        return base_acoustic.get(genre, 30)    
+        return base_acoustic.get(genre, 30)
     
-    def _estimate_key(self, genre, track_name):
-        """Estimate musical key based on genre and track characteristics"""
-        # Common keys for different genres
-        genre_keys = {
-            'pop': ['C', 'G', 'D', 'F'],
-            'rock': ['E', 'A', 'D', 'G'],
-            'hip-hop': ['C', 'F', 'G', 'A♯/B♭'],
-            'electronic': ['C', 'A', 'F♯/G♭', 'D'],
-            'indie': ['G', 'C', 'D', 'A'],
-            'jazz': ['C', 'F', 'B♭', 'E♭'],
-            'folk': ['G', 'C', 'D', 'F'],
-            'r&b': ['C', 'F', 'G', 'A♯/B♭']
+    def _estimate_key(self, genre, track_name, artist_name, audio_features):
+        """Estimate musical key based on genre, artist, and audio characteristics"""
+        # Enhanced key mapping with artist-specific patterns
+        artist_key_patterns = {
+            'taylor swift': ['G', 'C', 'D', 'F'],
+            'ed sheeran': ['G', 'C', 'D', 'Em'],
+            'drake': ['F', 'C', 'Bb', 'Gm'],
+            'the weeknd': ['Bb', 'F', 'Cm', 'Gm'],
+            'billie eilish': ['F', 'C', 'Bb', 'Gm'],            'ariana grande': ['C', 'G', 'F', 'Am'],
+            'chase atlantic': ['Ab', 'G#', 'Eb', 'Bb', 'F'],  # Alternative Pop/R&B keys
+            'd4vd': ['C', 'G', 'Am', 'F'],
+            'arctic monkeys': ['E', 'A', 'B', 'F#m'],
+            'clairo': ['F', 'C', 'Bb', 'Am'],
+            'lana del rey': ['Bb', 'F', 'Eb', 'Gm']
         }
         
-        possible_keys = genre_keys.get(genre, ['C', 'G', 'F', 'D'])
+        # Genre-specific key tendencies with more accuracy
+        genre_keys = {
+            'pop': ['C', 'G', 'F', 'Am', 'D'],
+            'dream pop': ['F', 'C', 'Bb', 'Dm', 'Am'],
+            'indie pop': ['G', 'C', 'D', 'Em', 'Am'],
+            'bedroom pop': ['F', 'C', 'Bb', 'Am', 'Dm'],
+            'contemporary r&b': ['Bb', 'F', 'Eb', 'Gm', 'Cm'],            'electropop': ['C', 'F', 'G', 'Am', 'Dm'],
+            'alternative pop': ['Ab', 'G#', 'Eb', 'Bb', 'F'],
+            'dark pop': ['Ab', 'Fm', 'Eb', 'Bb', 'Gm'],
+            'trap rock': ['Ab', 'Bb', 'F', 'Gm', 'Eb'],
+            'indie rock': ['E', 'A', 'D', 'Em', 'Bm'],
+            'alternative rock': ['E', 'A', 'G', 'Em', 'Am'],
+            'rock': ['E', 'A', 'D', 'G', 'Bm'],
+            'hip-hop': ['C', 'F', 'Bb', 'Am', 'Gm'],
+            'electronic': ['C', 'A', 'F#m', 'D', 'Bm'],
+            'indie': ['G', 'C', 'D', 'Em', 'Am'],
+            'jazz': ['C', 'F', 'Bb', 'G7', 'Dm'],
+            'folk': ['G', 'C', 'D', 'Em', 'Am'],
+            'indie folk': ['G', 'C', 'D', 'Em', 'Am'],
+            'r&b': ['C', 'F', 'G', 'Am', 'Bb']
+        }
         
-        # Use hash of track name to consistently pick a key
-        key_index = hash(track_name) % len(possible_keys)
-        return possible_keys[key_index]
-
-    def _valence_to_mood(self, valence, energy):
-        """Convert valence and energy scores to mood text"""
-        if valence >= 70:
-            if energy >= 70:
-                return "Upbeat, Energetic"
-            elif energy >= 50:
-                return "Happy, Uplifting"
-            else:
-                return "Peaceful, Content"
-        elif valence >= 50:
-            if energy >= 70:
-                return "Dynamic, Confident"
-            elif energy >= 40:
-                return "Balanced, Moderate"
-            else:
-                return "Calm, Relaxed"
-        elif valence >= 30:
-            if energy >= 60:
-                return "Intense, Dramatic"
-            elif energy >= 40:
-                return "Melancholic, Thoughtful"
-            else:
-                return "Mellow, Contemplative"
+        # Check artist-specific patterns first
+        artist_lower = artist_name.lower()
+        if artist_lower in artist_key_patterns:
+            possible_keys = artist_key_patterns[artist_lower]
         else:
-            if energy >= 60:
-                return "Dark, Aggressive"
-            elif energy >= 30:
-                return "Sad, Emotional"
-            else:
-                return "Gloomy, Depressive"
+            possible_keys = genre_keys.get(genre.lower(), ['C', 'G', 'F', 'D'])
+        
+        # Use song characteristics to influence key selection
+        track_lower = track_name.lower()
+        
+        # Happy/upbeat songs tend to be in major keys
+        valence = audio_features.get('valence', 50)
+        energy = audio_features.get('energy', 50)
+        
+        if valence > 70 and energy > 60:
+            # Prefer major keys for happy, energetic songs
+            major_keys = [k for k in possible_keys if not ('m' in k and k != 'Am')]
+            if major_keys:
+                possible_keys = major_keys
+        elif valence < 40:
+            # Prefer minor keys or darker majors for sad songs
+            minor_keys = [k for k in possible_keys if 'm' in k] + ['F', 'Bb', 'Eb']
+            possible_keys = minor_keys if minor_keys else possible_keys
+          # Use a more sophisticated hash that considers multiple factors
+        key_seed = hash(track_name + artist_name + genre) % len(possible_keys)
+        return possible_keys[key_seed]
+
+    def _valence_to_mood(self, valence, energy, genre, track_name, artist_name):
+        """Enhanced mood analysis based on multiple factors"""
+        
+        # Analyze track title for emotional keywords
+        track_lower = track_name.lower()
+        artist_lower = artist_name.lower()
+        
+        # Emotional keyword detection
+        sad_keywords = ['sad', 'cry', 'hurt', 'pain', 'lonely', 'miss', 'lost', 'goodbye', 'broken', 'tears']
+        happy_keywords = ['happy', 'joy', 'love', 'good', 'great', 'wonderful', 'amazing', 'beautiful', 'smile']
+        angry_keywords = ['hate', 'mad', 'angry', 'fight', 'war', 'rage', 'kill', 'destroy']
+        romantic_keywords = ['love', 'heart', 'baby', 'darling', 'kiss', 'forever', 'together', 'romance']
+        party_keywords = ['party', 'dance', 'club', 'night', 'fun', 'wild', 'crazy', 'celebrate']
+        chill_keywords = ['chill', 'relax', 'calm', 'peace', 'quiet', 'slow', 'soft', 'gentle']
+        
+        # Artist-specific mood tendencies
+        artist_moods = {
+            'billie eilish': ['Melancholic', 'Introspective', 'Dark'],
+            'd4vd': ['Dreamy', 'Nostalgic', 'Romantic'],
+            'clairo': ['Dreamy', 'Soft', 'Romantic'],
+            'lana del rey': ['Melancholic', 'Cinematic', 'Nostalgic'],
+            'the weeknd': ['Dark', 'Seductive', 'Intense'],
+            'drake': ['Confident', 'Moody', 'Reflective'],
+            'taylor swift': ['Emotional', 'Storytelling', 'Catchy'],            'ariana grande': ['Confident', 'Empowering', 'Romantic'],
+            'chase atlantic': ['Energetic', 'Dark-Pop', 'Sensual'],
+            'arctic monkeys': ['Cool', 'Edgy', 'Confident'],
+            'post malone': ['Laid-back', 'Melodic', 'Emotional']
+        }
+        
+        # Genre-specific mood characteristics
+        genre_moods = {
+            'dream pop': ['Dreamy', 'Ethereal', 'Nostalgic'],
+            'bedroom pop': ['Intimate', 'Cozy', 'Relaxed'],
+            'indie pop': ['Fresh', 'Authentic', 'Uplifting'],
+            'contemporary r&b': ['Smooth', 'Sensual', 'Soulful'],            'electropop': ['Energetic', 'Modern', 'Catchy'],
+            'alternative pop': ['Energetic', 'Dark-Pop', 'Sensual'],
+            'dark pop': ['Dark', 'Moody', 'Atmospheric'],
+            'trap rock': ['Edgy', 'Intense', 'Rhythmic'],
+            'indie rock': ['Raw', 'Authentic', 'Emotional'],
+            'alternative rock': ['Edgy', 'Rebellious', 'Intense'],
+            'pop': ['Catchy', 'Uplifting', 'Radio-friendly'],
+            'hip-hop': ['Confident', 'Rhythmic', 'Street-smart'],
+            'electronic': ['Futuristic', 'Energetic', 'Digital'],
+            'jazz': ['Sophisticated', 'Smooth', 'Timeless'],
+            'folk': ['Authentic', 'Storytelling', 'Organic'],
+            'indie folk': ['Intimate', 'Thoughtful', 'Acoustic']
+        }
+        
+        # Start with base analysis
+        if valence >= 75 and energy >= 70:
+            base_moods = ["Euphoric", "Energetic", "Celebratory"]
+        elif valence >= 70 and energy >= 50:
+            base_moods = ["Happy", "Uplifting", "Joyful"]
+        elif valence >= 60 and energy >= 60:
+            base_moods = ["Upbeat", "Positive", "Lively"]
+        elif valence >= 50 and energy >= 50:
+            base_moods = ["Balanced", "Moderate", "Steady"]
+        elif valence >= 40 and energy >= 40:
+            base_moods = ["Contemplative", "Thoughtful", "Mellow"]
+        elif valence >= 30:
+            base_moods = ["Melancholic", "Reflective", "Somber"]
+        else:
+            base_moods = ["Sad", "Dark", "Emotional"]
+        
+        # Override with keyword-based analysis
+        if any(word in track_lower for word in sad_keywords):
+            base_moods = ["Sad", "Emotional", "Heartfelt"]
+        elif any(word in track_lower for word in happy_keywords):
+            base_moods = ["Happy", "Joyful", "Uplifting"]
+        elif any(word in track_lower for word in romantic_keywords):
+            base_moods = ["Romantic", "Loving", "Intimate"]
+        elif any(word in track_lower for word in party_keywords):
+            base_moods = ["Party", "Energetic", "Fun"]
+        elif any(word in track_lower for word in chill_keywords):
+            base_moods = ["Chill", "Relaxed", "Laid-back"]
+        
+        # Apply artist-specific tendencies
+        if artist_lower in artist_moods:
+            artist_mood_set = artist_moods[artist_lower]
+            # Blend with base moods
+            final_moods = [artist_mood_set[0], base_moods[0]]
+            if len(artist_mood_set) > 1:
+                final_moods.append(artist_mood_set[1])
+        # Apply genre-specific characteristics
+        elif genre.lower() in genre_moods:
+            genre_mood_set = genre_moods[genre.lower()]
+            final_moods = [genre_mood_set[0], base_moods[0]]
+            if len(genre_mood_set) > 1:
+                final_moods.append(genre_mood_set[1])
+        else:
+            final_moods = base_moods[:2]
+        
+        # Return 1-2 primary moods
+        return ", ".join(final_moods[:2])
       
     def _get_default_features(self):
         """Return default audio features when API fails"""
@@ -598,7 +811,7 @@ class SpotifyRecommendController:
         }
         return instrument_map.get(genre, '🎸 Guitar • 🎹 Piano • 🥁 Drums • 🎤 Vocals')
 
-    def _generate_keywords(self, genre, track_name, artist_name):
+    def _generate_keywords(self, genre, track_name):
         """Generate relevant keywords based on genre and track info"""
         # Base keywords by genre
         genre_keywords = {
@@ -678,3 +891,270 @@ class SpotifyRecommendController:
             genre=estimated_genre.title(),
             artist=artist_name
         )
+
+    def _estimate_specific_genre(self, artist_name, track_name):
+        """Estimate specific subgenre from artist name and track name"""
+        # Check known artist mappings first
+        if artist_name in self.artist_genre_map:
+            return self.artist_genre_map[artist_name].title()
+        
+        # Check for specific genre keywords in artist name or track name
+        text_to_check = f"{artist_name} {track_name}".lower()        # More specific genre keywords mapping
+        specific_genre_keywords = {
+            self.DREAM_POP: ['dream', 'dreamy', 'ethereal', 'shoegaze'],
+            self.BEDROOM_POP: ['bedroom', 'lo-fi', 'chill', 'indie bedroom'],
+            self.INDIE_POP: ['indie pop', 'indie', 'independent'],
+            'electropop': ['electro', 'synth', 'electronic pop'],
+            self.ALTERNATIVE_POP: ['alternative pop', 'alt pop', 'chase atlantic'],
+            self.DARK_POP: ['dark pop', 'dark', 'moody pop'],
+            self.TRAP_ROCK: ['trap rock', 'trap', 'rock trap'],
+            'synthpop': ['synth', 'synthetic', '80s'],
+            self.CONTEMPORARY_RNB: ['r&b', 'rnb', 'contemporary'],
+            'alternative rock': ['alternative rock', 'alt rock', 'grunge'],
+            'indie rock': ['indie rock', 'independent rock'],
+            'trap': ['trap', 'atlanta', 'mumble'],
+            'drill': ['drill', 'chicago drill', 'uk drill'],
+            'house': ['house', 'deep house', 'tech house'],
+            'techno': ['techno', 'detroit', 'minimal'],
+            'edm': ['edm', 'festival', 'big room'],
+            self.INDIE_FOLK: ['indie folk', 'folk indie', 'acoustic indie'],
+            'psychedelic pop': ['psychedelic', 'psych', 'trippy'],
+            'k-pop': ['k-pop', 'korean', 'kpop'],
+            'lo-fi': ['lo-fi', 'lofi', 'low fidelity']
+        }
+        
+        # Check for specific genre matches first
+        for genre, keywords in specific_genre_keywords.items():
+            for keyword in keywords:
+                if keyword in text_to_check:
+                    return genre.title()
+        
+        # Fallback to general genres if no specific match
+        general_genre_keywords = {
+            'Pop': ['pop', 'mainstream', 'chart', 'hit', 'commercial'],
+            'Hip-Hop': ['hip', 'hop', 'rap', 'hip-hop'],
+            'Rock': ['rock', 'metal', 'punk'],
+            'Electronic': ['electronic', 'edm', 'dance'],
+            'R&B': ['r&b', 'soul', 'funk', 'rnb'],
+            'Indie': ['indie', 'independent', 'alternative'],
+            'Jazz': ['jazz', 'blues', 'swing'],
+            'Folk': ['folk', 'acoustic', 'country']
+        }
+        
+        for genre, keywords in general_genre_keywords.items():
+            for keyword in keywords:
+                if keyword in text_to_check:
+                    return genre
+        
+        # Default to Pop for unknown
+        return 'Pop'
+
+    def _analyze_song_content(self, track_name, genre):
+        """Analyze song content themes based on title and genre"""
+        title_lower = track_name.lower()
+        
+        # Universal theme keywords
+        love_themes = ['love', 'heart', 'kiss', 'romance', 'together', 'you', 'baby']
+        nostalgic_themes = ['memory', 'remember', 'past', 'yesterday', 'time', 'old', 'back']
+        empowerment_themes = ['strong', 'power', 'fight', 'rise', 'free', 'brave', 'confidence']
+        melancholic_themes = ['sad', 'cry', 'broken', 'lonely', 'lost', 'hurt', 'pain']
+        celebration_themes = ['party', 'dance', 'fun', 'celebrate', 'night', 'good', 'happy']
+        introspective_themes = ['think', 'mind', 'soul', 'deep', 'life', 'me', 'myself']
+        
+        themes = []
+        
+        # Check for theme matches
+        if any(word in title_lower for word in love_themes):
+            themes.append('Love and relationships')
+        if any(word in title_lower for word in nostalgic_themes):
+            themes.append('Nostalgia and memories')
+        if any(word in title_lower for word in empowerment_themes):
+            themes.append('Empowerment and strength')
+        if any(word in title_lower for word in melancholic_themes):
+            themes.append('Melancholy and reflection')
+        if any(word in title_lower for word in celebration_themes):
+            themes.append('Celebration and joy')
+        if any(word in title_lower for word in introspective_themes):
+            themes.append('Self-reflection and growth')
+          # Genre-based theme defaults
+        if not themes:
+            genre_defaults = {
+                self.DREAM_POP: 'Ethereal emotions and introspection',
+                self.BEDROOM_POP: 'Intimate personal experiences',
+                self.INDIE_POP: 'Youthful experiences and emotions',
+                'hip-hop': 'Personal expression and social themes',
+                self.CONTEMPORARY_RNB: 'Love and personal relationships',
+                'electronic': 'Energy and movement',
+                self.INDIE_ROCK: 'Alternative perspectives and emotions',
+                'pop': 'Universal human experiences'
+            }
+            return genre_defaults.get(genre.lower(), 'Life experiences and emotions')
+        
+        return ', '.join(themes[:2])  # Return top 2 themes    
+    
+    def _generate_specific_keywords(self, genre, track_name):
+        """Generate 4-6 specific and relevant keywords"""
+        keywords = []
+        
+        # Genre-based musical descriptors
+        genre_descriptors = {
+            self.DREAM_POP: ['dreamy', 'atmospheric', 'ethereal', 'reverb-heavy'],
+            self.BEDROOM_POP: ['lo-fi', 'intimate', 'nostalgic', 'DIY'],
+            self.INDIE_POP: ['catchy', 'melodic', 'indie', 'alternative'],
+            self.ELECTROPOP: ['synthetic', 'danceable', 'electronic', 'pop'],
+            self.CONTEMPORARY_RNB: ['smooth', 'soulful', 'vocal-driven', 'groovy'],
+            'hip-hop': ['rhythmic', 'lyrical', 'beat-driven', 'urban'],
+            self.INDIE_ROCK: ['guitar-driven', 'alternative', 'raw', 'energetic'],
+            'pop': ['catchy', 'mainstream', 'accessible', 'melodic'],
+            'electronic': ['synthesized', 'danceable', 'digital', 'energetic'],
+            'rock': ['guitar-heavy', 'powerful', 'driving', 'energetic']
+        }
+        
+        # Add genre-specific descriptors
+        if genre.lower() in genre_descriptors:
+            keywords.extend(genre_descriptors[genre.lower()][:2])
+        
+        # Functional keywords based on track characteristics
+        title_lower = track_name.lower()
+        
+        if any(word in title_lower for word in ['dance', 'party', 'club']):
+            keywords.append('party-ready')
+        elif any(word in title_lower for word in ['chill', 'relax', 'calm']):
+            keywords.append('relaxing')
+        elif any(word in title_lower for word in ['love', 'heart', 'romance']):
+            keywords.append('romantic')
+        elif any(word in title_lower for word in ['sad', 'cry', 'hurt']):
+            keywords.append('emotional')
+        elif any(word in title_lower for word in ['night', 'midnight', 'evening']):
+            keywords.append('nighttime')
+        elif any(word in title_lower for word in ['summer', 'sun', 'beach']):
+            keywords.append('summery')
+        else:
+            keywords.append('mood-setting')
+        
+        # Add context-based keywords
+        if 'pop' in genre.lower():
+            keywords.append('radio-friendly')
+        if 'indie' in genre.lower():
+            keywords.append('alternative')
+        if any(word in genre.lower() for word in ['electronic', 'house', 'techno']):
+            keywords.append('electronic')
+        
+        # Ensure we have exactly 4-6 keywords
+        if len(keywords) < 4:
+            default_keywords = ['melodic', 'contemporary', 'expressive', 'atmospheric']
+            keywords.extend(default_keywords[:4-len(keywords)])
+        
+        return keywords[:6]  # Limit to 6 keywords max
+
+    def _format_duration(self, duration_ms):
+        """Format duration from milliseconds to MM:SS format"""
+        if not duration_ms:
+            return "Unknown"
+        
+        seconds = duration_ms // 1000
+        minutes = seconds // 60
+        remaining_seconds = seconds % 60
+        
+        return f"{minutes}:{remaining_seconds:02d}"
+
+    def generate_song_content(self):
+        """Generate song content analysis using ChatGPT API"""
+        try:
+            # Get request data
+            data = request.get_json()
+            if not data:
+                return jsonify({
+                    'success': False,
+                    'error': 'Request data is required'
+                }), 400
+
+            song_title = data.get('song_title')
+            artist_name = data.get('artist_name')
+            
+            if not song_title or not artist_name:
+                return jsonify({
+                    'success': False,
+                    'error': 'Song title and artist name are required'
+                }), 400
+
+            genre = data.get('genre', 'Unknown')
+            mood = data.get('mood', 'Unknown')
+            keywords = data.get('keywords', [])            # Set up OpenAI client
+            from openai import OpenAI
+            client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+            
+            if not os.getenv('OPENAI_API_KEY'):
+                return jsonify({
+                    'success': False,
+                    'error': 'OpenAI API key not configured'
+                }), 500
+
+            # Create prompt for ChatGPT
+            prompt = self._create_content_prompt(song_title, artist_name, genre, mood, keywords)
+            
+            # Generate content using ChatGPT
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a music analyst who creates insightful, engaging descriptions of songs. Provide thoughtful analysis in 2-3 sentences that captures the essence and emotional impact of the music."
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                max_tokens=150,
+                temperature=0.7
+            )
+            
+            generated_content = response.choices[0].message.content.strip()
+            
+            return jsonify({
+                'success': True,
+                'content': generated_content,
+                'song_title': song_title,
+                'artist_name': artist_name
+            })
+            
+        except openai.error.RateLimitError:
+            return jsonify({
+                'success': False,
+                'error': 'Rate limit exceeded. Please try again later.'
+            }), 429
+            
+        except openai.error.AuthenticationError:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid OpenAI API key'
+            }), 401
+            
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': f'Failed to generate content: {str(e)}'
+            }), 500
+
+    def _create_content_prompt(self, song_title, artist_name, genre, mood, keywords):
+        """Create a prompt for ChatGPT content generation"""
+        keywords_str = ', '.join(keywords) if keywords else 'N/A'
+        
+        prompt = f"""
+        Analyze the song "{song_title}" by {artist_name}.
+        
+        Song Details:
+        - Genre: {genre}
+        - Mood: {mood}
+        - Keywords: {keywords_str}
+        
+        Please provide a brief, insightful analysis of this song that covers:
+        1. The emotional themes and atmosphere
+        2. The musical style and its impact
+        3. What makes this song unique or compelling
+        
+        Keep the response engaging and accessible, around 50-80 words.
+        """
+        
+        return prompt
