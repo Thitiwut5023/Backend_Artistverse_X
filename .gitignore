@@ -10,3 +10,5 @@ http_ca.crt
 test_connect.ipynb
 bulk_index_log.pkl
 test/data/merged_clean.csv
+test/__pycache__
+.coverage
