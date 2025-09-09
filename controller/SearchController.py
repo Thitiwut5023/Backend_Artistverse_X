@@ -23,3 +23,18 @@ class SearchController:
 
         except Exception as e:
             return jsonify({"error": str(e)}), 500
+
+    def get_all_songs_handler(self):
+        """
+        Handle get all songs requests for initial display
+        Example: /songs?size=20&sort=score
+        """
+        try:
+            size = int(request.args.get("size", 20))
+            sort_by = request.args.get("sort", "score")
+
+            result = self.search_service.get_all_songs(size, sort_by)
+            return result
+
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500

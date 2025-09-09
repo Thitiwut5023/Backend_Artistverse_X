@@ -100,5 +100,10 @@ def search_route():
     search_controller = SearchController()
     return search_controller.search_handler()
 
+@app.route('/songs', methods=['GET'])
+def get_all_songs():
+    search_controller = SearchController()
+    return search_controller.get_all_songs_handler()
+
 if __name__ == '__main__':
     app.run(debug=True)

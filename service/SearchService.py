@@ -11,12 +11,49 @@ class SearchService:
         )
         
         self.index_name = "spotify"
-        
-        # ทดสอบการเชื่อมต่อ
+          # ทดสอบการเชื่อมต่อ
         try:
             print("Connected to ES:", self.es.info().body)
         except Exception as e:
-            print("Failed to connect to ES:", e)    
+            print("Failed to connect to ES:", e)
+
+    def get_all_songs(self, size=20, sort_by="score"):
+        """
+        Get all songs from the index (for initial display)
+        Args:
+            size: Number of results to return (default: 20)
+            sort_by: Sort field (default: "score")
+        """
+        try:
+            body = {
+                "query": {
+                    "match_all": {}
+                },
+                "sort": [
+                    {"_score": {"order": "desc"}}
+                ]
+            }
+
+            response = self.es.search(index=self.index_name, body=body, size=size)
+
+            results = [
+                {
+                    "id": hit["_id"],
+                    "score": hit["_score"],
+                    "source": hit["_source"]
+                }
+                for hit in response["hits"]["hits"]
+            ]
+
+            return jsonify({
+                "query": "",
+                "field": "all",
+                "hits": results
+            })
+
+        except Exception as e:
+            raise RuntimeError(f"Failed to get songs: {str(e)}")
+            
     def search(self, query_text, field="name", size=10):
         """
         Search for songs in Elasticsearch
