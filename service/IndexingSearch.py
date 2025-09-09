@@ -24,7 +24,7 @@ if es.indices.exists(index=index_name):
 mapping = {
     "mappings": {
         "properties": {
-            "genres": {"type": "keyword"},
+            "genres": {"type": "text"},  # Changed from keyword to text for better search
             "artists": {"type": "text"},
             "year": {"type": "integer"},
             "name": {"type": "text"}

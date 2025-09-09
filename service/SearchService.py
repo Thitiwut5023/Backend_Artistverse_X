@@ -6,7 +6,7 @@ class SearchService:
         # ---- Elasticsearch Client ----
         self.es = Elasticsearch(
             "https://localhost:9200",
-            basic_auth=("elastic", "DQEoJCHiY=jvaC0Cnbd8"),  # เปลี่ยนรหัสตามจริง
+            basic_auth=("elastic", "DQEoJCHiY=jvaC0Cnbd8"),
             ca_certs="~/http_ca.crt"
         )
         
@@ -16,8 +16,7 @@ class SearchService:
         try:
             print("Connected to ES:", self.es.info().body)
         except Exception as e:
-            print("Failed to connect to ES:", e)
-
+            print("Failed to connect to ES:", e)    
     def search(self, query_text, field="name", size=10):
         """
         Search for songs in Elasticsearch
@@ -27,13 +26,23 @@ class SearchService:
             size: Number of results to return (default: 10)
         """
         try:
-            body = {
-                "query": {
-                    "match": {
-                        field: query_text
+            # Use wildcard query for genres field to search within the string
+            if field == "genres":
+                body = {
+                    "query": {
+                        "wildcard": {
+                            field: f"*{query_text}*"
+                        }
                     }
                 }
-            }
+            else:
+                body = {
+                    "query": {
+                        "match": {
+                            field: query_text
+                        }
+                    }
+                }
 
             response = self.es.search(index=self.index_name, body=body, size=size)
 
